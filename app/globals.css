@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Theme variables */
+  --bg-main: #F0EBE0;
+  --bg-dashboard: #EDE8DC;
+  --bg-panel: #DDD8CC;
+  --bg-card: #E8E3D8;
+  --bg-glass: rgba(255, 250, 240, 0.85);
+  --border-default: #C4BAA8;
+  --border-glass: rgba(210, 200, 185, 0.7);
+  --text-primary: #3D3830;
+  --text-secondary: #7A8C72;
+  --text-muted: #9A9E90;
+  --accent-main: #6B9E6B;
+  --accent-hover: #5A8A5A;
+  --accent-dark: #4A7A4A;
+  --bg-alert: #D4CEC3;
+}
+
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* Theme variables - dark mode based on light palette */
+  --bg-main: #2A2825;
+  --bg-dashboard: #24221F;
+  --bg-panel: #33302C;
+  --bg-card: #3D3934;
+  --bg-glass: rgba(45, 42, 38, 0.85);
+  --border-default: #4A4640;
+  --border-glass: rgba(90, 85, 78, 0.7);
+  --text-primary: #EAE6DF;
+  --text-secondary: #9DB093;
+  --text-muted: #8A8E80;
+  --accent-main: #548054;
+  --accent-hover: #6B9E6B;
+  --accent-dark: #3F603F;
+  --bg-alert: #383530;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --color-bg-main: var(--bg-main);
+  --color-bg-dashboard: var(--bg-dashboard);
+  --color-bg-panel: var(--bg-panel);
+  --color-bg-card: var(--bg-card);
+  --color-bg-glass: var(--bg-glass);
+  --color-border-default: var(--border-default);
+  --color-border-glass: var(--border-glass);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent-main: var(--accent-main);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-dark: var(--accent-dark);
+  --color-bg-alert: var(--bg-alert);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out both;
+}
