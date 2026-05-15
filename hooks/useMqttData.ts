@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import mqtt, { MqttClient } from "mqtt"
+import type { MqttClient } from "mqtt"
 
 export interface SensorDataPoint {
     time: string
@@ -56,83 +56,99 @@ export function useMqttData() {
     }, [])
 
     useEffect(() => {
+        // Only run in the browser
+        if (typeof window === "undefined") return
+
+        let client: MqttClient | null = null
+        let cancelled = false
+
         setConnectionStatus("connecting")
 
-        const client = mqtt.connect(BROKER_URL, {
-            clientId: CLIENT_ID,
-            clean: true,
-            reconnectPeriod: 5000,
-            connectTimeout: 10000,
-        })
+        // Dynamically import mqtt so Node.js built-ins are never resolved server-side
+        import("mqtt").then((mqttModule) => {
+            if (cancelled) return
 
-        clientRef.current = client
+            const mqtt = mqttModule.default || mqttModule
+            client = mqtt.connect(BROKER_URL, {
+                clientId: CLIENT_ID,
+                clean: true,
+                reconnectPeriod: 5000,
+                connectTimeout: 10000,
+            })
 
-        client.on("connect", () => {
-            setConnectionStatus("connected")
-            client.subscribe(TOPIC, { qos: 0 }, (err) => {
-                if (err) {
-                    console.error("[MQTT] Subscribe error:", err)
+            clientRef.current = client
+
+            client.on("connect", () => {
+                setConnectionStatus("connected")
+                client!.subscribe(TOPIC, { qos: 0 }, (err) => {
+                    if (err) {
+                        console.error("[MQTT] Subscribe error:", err)
+                    }
+                })
+            })
+
+            client.on("message", (_topic: string, payload: Buffer) => {
+                try {
+                    const data = JSON.parse(payload.toString())
+                    const now = new Date()
+                    const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now
+                        .getMinutes()
+                        .toString()
+                        .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`
+
+                    // Merge incoming values with latest known values
+                    const prev = latestValuesRef.current
+                    const point: SensorDataPoint = {
+                        time: timeStr,
+                        heartRate: data.heartRate ?? prev.heartRate,
+                        spo2: data.spo2 ?? prev.spo2,
+                        temperature: data.temperature ?? prev.temperature,
+                        respiratoryRate: data.respiratoryRate ?? prev.respiratoryRate,
+                    }
+
+                    // Update latest values ref
+                    latestValuesRef.current = {
+                        heartRate: point.heartRate,
+                        spo2: point.spo2,
+                        temperature: point.temperature,
+                        respiratoryRate: point.respiratoryRate,
+                    }
+
+                    setChartData((prev) => {
+                        const updated = [...prev, point]
+                        return updated.length > MAX_DATA_POINTS
+                            ? updated.slice(updated.length - MAX_DATA_POINTS)
+                            : updated
+                    })
+
+                    setLastReceived(Date.now())
+                    resetReceivingTimeout()
+                } catch (e) {
+                    console.error("[MQTT] Failed to parse message:", e)
                 }
             })
-        })
 
-        client.on("message", (_topic, payload) => {
-            try {
-                const data = JSON.parse(payload.toString())
-                const now = new Date()
-                const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now
-                    .getMinutes()
-                    .toString()
-                    .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`
+            client.on("error", (err: Error) => {
+                console.error("[MQTT] Error:", err)
+                setConnectionStatus("error")
+            })
 
-                // Merge incoming values with latest known values
-                const prev = latestValuesRef.current
-                const point: SensorDataPoint = {
-                    time: timeStr,
-                    heartRate: data.heartRate ?? prev.heartRate,
-                    spo2: data.spo2 ?? prev.spo2,
-                    temperature: data.temperature ?? prev.temperature,
-                    respiratoryRate: data.respiratoryRate ?? prev.respiratoryRate,
-                }
+            client.on("close", () => {
+                setConnectionStatus("disconnected")
+            })
 
-                // Update latest values ref
-                latestValuesRef.current = {
-                    heartRate: point.heartRate,
-                    spo2: point.spo2,
-                    temperature: point.temperature,
-                    respiratoryRate: point.respiratoryRate,
-                }
-
-                setChartData((prev) => {
-                    const updated = [...prev, point]
-                    return updated.length > MAX_DATA_POINTS
-                        ? updated.slice(updated.length - MAX_DATA_POINTS)
-                        : updated
-                })
-
-                setLastReceived(Date.now())
-                resetReceivingTimeout()
-            } catch (e) {
-                console.error("[MQTT] Failed to parse message:", e)
-            }
-        })
-
-        client.on("error", (err) => {
-            console.error("[MQTT] Error:", err)
+            client.on("reconnect", () => {
+                setConnectionStatus("connecting")
+            })
+        }).catch((err) => {
+            console.error("[MQTT] Failed to load mqtt module:", err)
             setConnectionStatus("error")
         })
 
-        client.on("close", () => {
-            setConnectionStatus("disconnected")
-        })
-
-        client.on("reconnect", () => {
-            setConnectionStatus("connecting")
-        })
-
         return () => {
+            cancelled = true
             if (timeoutRef.current) clearTimeout(timeoutRef.current)
-            client.end(true)
+            if (client) client.end(true)
         }
     }, [resetReceivingTimeout])
 
