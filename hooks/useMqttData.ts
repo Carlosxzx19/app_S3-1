@@ -95,8 +95,12 @@ export function useMqttData() {
             })
 
             client.on("message", (_topic: string, payload: Buffer) => {
+                const payloadStr = payload.toString();
+                console.log("[MQTT] Raw payload received:", payloadStr);
+                
                 try {
-                    const data = JSON.parse(payload.toString())
+                    const data = JSON.parse(payloadStr)
+                    console.log("[MQTT] Parsed data:", data);
                     const now = Date.now()
 
                     // Store temperature if provided (from a separate sensor like MLX90614)
@@ -108,6 +112,8 @@ export function useMqttData() {
                     const ir = data.ir ?? 0
                     const red = data.red ?? 0
                     const result = processorRef.current.processSample(ir, red, now)
+                    
+                    console.log("[MQTT] Processor result:", result);
 
                     setLastReceived(now)
                     resetReceivingTimeout()
