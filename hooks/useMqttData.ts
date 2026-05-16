@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import type { MqttClient } from "mqtt"
+import { createVitalSignsProcessor } from "@/lib/vitalSignsProcessor"
 
 export interface SensorDataPoint {
     time: string
@@ -14,34 +14,34 @@ export interface SensorDataPoint {
 export type ConnectionStatus = "connected" | "disconnected" | "connecting" | "error"
 
 const MAX_DATA_POINTS = 30
+const CHART_UPDATE_INTERVAL_MS = 2000 // Add a chart point every 2 seconds
 
 // ─── Default broker config (override via .env.local) ────────────────────────
 const BROKER_URL = process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "ws://broker.emqx.io:8083/mqtt"
 const TOPIC = process.env.NEXT_PUBLIC_MQTT_TOPIC || "visualhealth/esp32/sensors"
-const CLIENT_ID = `visualhealth_${Math.random().toString(16).slice(2, 10)}`
 
 /**
  * Expected MQTT payload from ESP32 (JSON):
  * {
- *   "heartRate": 75,
- *   "spo2": 98,
- *   "temperature": 36.6,
- *   "respiratoryRate": 18
+ *   "ir": 123456,
+ *   "red": 98765,
+ *   "temperature": 36.6   // optional — from a separate sensor
  * }
  *
- * All fields are optional — missing fields will retain the previous value.
+ * The raw IR/Red values are processed client-side using the
+ * vital signs processor to compute heart rate, SpO2, and
+ * respiratory rate via HRV + EDR spectral fusion.
  */
 export function useMqttData() {
     const [chartData, setChartData] = useState<SensorDataPoint[]>([])
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected")
     const [lastReceived, setLastReceived] = useState<number | null>(null)
-    const clientRef = useRef<MqttClient | null>(null)
-    const latestValuesRef = useRef<Omit<SensorDataPoint, "time">>({
-        heartRate: null,
-        spo2: null,
-        temperature: null,
-        respiratoryRate: null,
-    })
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const clientRef = useRef<any>(null)
+    const processorRef = useRef(createVitalSignsProcessor())
+    const lastChartUpdateRef = useRef<number>(0)
+    const lastTemperatureRef = useRef<number | null>(null)
 
     // Timeout to detect data staleness (no data for 10s → yellow)
     const [isReceivingData, setIsReceivingData] = useState(false)
@@ -59,7 +59,8 @@ export function useMqttData() {
         // Only run in the browser
         if (typeof window === "undefined") return
 
-        let client: MqttClient | null = null
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let client: any = null
         let cancelled = false
 
         setConnectionStatus("connecting")
@@ -69,8 +70,10 @@ export function useMqttData() {
             if (cancelled) return
 
             const mqtt = mqttModule.default || mqttModule
+            const clientId = `visualhealth_${Math.random().toString(16).slice(2, 10)}`
+
             client = mqtt.connect(BROKER_URL, {
-                clientId: CLIENT_ID,
+                clientId,
                 clean: true,
                 reconnectPeriod: 5000,
                 connectTimeout: 10000,
@@ -80,7 +83,7 @@ export function useMqttData() {
 
             client.on("connect", () => {
                 setConnectionStatus("connected")
-                client!.subscribe(TOPIC, { qos: 0 }, (err) => {
+                client.subscribe(TOPIC, { qos: 0 }, (err: Error | null) => {
                     if (err) {
                         console.error("[MQTT] Subscribe error:", err)
                     }
@@ -90,39 +93,52 @@ export function useMqttData() {
             client.on("message", (_topic: string, payload: Buffer) => {
                 try {
                     const data = JSON.parse(payload.toString())
-                    const now = new Date()
-                    const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now
-                        .getMinutes()
-                        .toString()
-                        .padStart(2, "0")}:${now.getSeconds().toString().padStart(2, "0")}`
+                    const now = Date.now()
 
-                    // Merge incoming values with latest known values
-                    const prev = latestValuesRef.current
-                    const point: SensorDataPoint = {
-                        time: timeStr,
-                        heartRate: data.heartRate ?? prev.heartRate,
-                        spo2: data.spo2 ?? prev.spo2,
-                        temperature: data.temperature ?? prev.temperature,
-                        respiratoryRate: data.respiratoryRate ?? prev.respiratoryRate,
+                    // Store temperature if provided (from a separate sensor like MLX90614)
+                    if (data.temperature !== undefined) {
+                        lastTemperatureRef.current = data.temperature
                     }
 
-                    // Update latest values ref
-                    latestValuesRef.current = {
-                        heartRate: point.heartRate,
-                        spo2: point.spo2,
-                        temperature: point.temperature,
-                        respiratoryRate: point.respiratoryRate,
-                    }
+                    // Process raw IR/Red values through the vital signs processor
+                    const ir = data.ir ?? 0
+                    const red = data.red ?? 0
+                    const result = processorRef.current.processSample(ir, red, now)
 
-                    setChartData((prev) => {
-                        const updated = [...prev, point]
-                        return updated.length > MAX_DATA_POINTS
-                            ? updated.slice(updated.length - MAX_DATA_POINTS)
-                            : updated
-                    })
-
-                    setLastReceived(Date.now())
+                    setLastReceived(now)
                     resetReceivingTimeout()
+
+                    // Only add a chart data point every CHART_UPDATE_INTERVAL_MS
+                    if (now - lastChartUpdateRef.current >= CHART_UPDATE_INTERVAL_MS) {
+                        lastChartUpdateRef.current = now
+
+                        const timeDate = new Date(now)
+                        const timeStr = `${timeDate.getHours().toString().padStart(2, "0")}:${timeDate
+                            .getMinutes()
+                            .toString()
+                            .padStart(2, "0")}:${timeDate.getSeconds().toString().padStart(2, "0")}`
+
+                        const point: SensorDataPoint = {
+                            time: timeStr,
+                            heartRate: result.fingerDetected && result.heartRate > 0
+                                ? result.heartRate
+                                : null,
+                            spo2: result.fingerDetected && result.validSPO2
+                                ? result.spo2
+                                : null,
+                            temperature: lastTemperatureRef.current,
+                            respiratoryRate: result.fingerDetected
+                                ? result.respiratoryRate
+                                : null,
+                        }
+
+                        setChartData((prev) => {
+                            const updated = [...prev, point]
+                            return updated.length > MAX_DATA_POINTS
+                                ? updated.slice(updated.length - MAX_DATA_POINTS)
+                                : updated
+                        })
+                    }
                 } catch (e) {
                     console.error("[MQTT] Failed to parse message:", e)
                 }
