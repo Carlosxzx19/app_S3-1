@@ -19,8 +19,8 @@ const CHART_UPDATE_INTERVAL_MS = 2000 // Add a chart point every 2 seconds
 // ─── Default broker config (override via .env.local) ────────────────────────
 const BROKER_URL = process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "wss://broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud:8884/mqtt"
 const TOPIC = process.env.NEXT_PUBLIC_MQTT_TOPIC || "visualhealth/esp32/sensors"
-const MQTT_USERNAME = process.env.NEXT_PUBLIC_MQTT_USERNAME || "Fotopo"
-const MQTT_PASSWORD = process.env.NEXT_PUBLIC_MQTT_PASSWORD || "Qwerty123*"
+const MQTT_USERNAME = process.env.NEXT_PUBLIC_MQTT_USERNAME || "DashboardWeb"
+const MQTT_PASSWORD = process.env.NEXT_PUBLIC_MQTT_PASSWORD || "VisualHealth123*"
 
 /**
  * Expected MQTT payload from ESP32 (JSON):
