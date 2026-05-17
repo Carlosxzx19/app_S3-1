@@ -74,7 +74,14 @@ export function useMqttData() {
             const mqtt = mqttModule.default || mqttModule
             const clientId = `visualhealth_${Math.random().toString(16).slice(2, 10)}`
 
-            client = mqtt.connect(BROKER_URL, {
+            // HiveMQ Cloud WebSocket requirements:
+            const host = "broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud"
+            
+            client = mqtt.connect({
+                protocol: "wss",
+                host: host,
+                port: 8884,
+                path: "/mqtt",
                 clientId,
                 clean: true,
                 reconnectPeriod: 5000,
