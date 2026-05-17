@@ -75,7 +75,7 @@ export function useMqttData() {
             const clientId = `visualhealth_${Math.random().toString(16).slice(2, 10)}`
 
             // HiveMQ Cloud WebSocket requirements:
-            const host = "broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud"
+            const host = "978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud"
             
             client = mqtt.connect({
                 protocol: "wss",
