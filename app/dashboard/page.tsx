@@ -15,6 +15,7 @@ import {
   Sun,
   Wifi,
   WifiOff,
+  Battery,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -167,6 +168,50 @@ function MqttStatusIndicator({ isReceiving, connectionStatus }: { isReceiving: b
   );
 }
 
+function BatteryIndicator({ batteryPercentage, isConnected }: { batteryPercentage: number | null, isConnected: boolean }) {
+  if (!isConnected || batteryPercentage === null) return null;
+
+  let color = "#ef4444"; // red
+  let bgColor = "rgba(239, 68, 68, 0.1)";
+  let borderColor = "rgba(239, 68, 68, 0.3)";
+
+  if (batteryPercentage >= 40) {
+    color = "#22c55e"; // green
+    bgColor = "rgba(34, 197, 94, 0.1)";
+    borderColor = "rgba(34, 197, 94, 0.3)";
+  } else if (batteryPercentage >= 20) {
+    color = "#eab308"; // yellow
+    bgColor = "rgba(234, 179, 8, 0.1)";
+    borderColor = "rgba(234, 179, 8, 0.3)";
+  }
+
+  return (
+    <div
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "5px 12px",
+        borderRadius: "999px",
+        background: bgColor,
+        border: `1px solid ${borderColor}`,
+        transition: "all 0.4s ease",
+        flexShrink: 0,
+      }}
+    >
+      <Battery size={14} style={{ color }} />
+      <span style={{
+        fontSize: "11px",
+        fontWeight: 600,
+        letterSpacing: "0.04em",
+        color,
+      }}>
+        {batteryPercentage}%
+      </span>
+    </div>
+  );
+}
+
 const STATUS_CONFIG = {
   stable: {
     label: "Estable",
@@ -271,7 +316,7 @@ export default function Dashboard() {
   const [selectedChart, setSelectedChart] = useState<ChartKey | null>(null);
   const [isDark, setIsDark] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const { chartData, connectionStatus, isReceivingData } = useMqttData();
+  const { chartData, connectionStatus, isReceivingData, batteryPercentage } = useMqttData();
   const latestDataPoint = chartData.length > 0 ? chartData[chartData.length - 1] : null;
 
   useEffect(() => {
@@ -484,6 +529,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-4">
               <StatusBar isDark={isDark} latestData={latestDataPoint} />
               <MqttStatusIndicator isReceiving={isReceivingData} connectionStatus={connectionStatus} />
+              <BatteryIndicator batteryPercentage={batteryPercentage} isConnected={connectionStatus === "connected"} />
             </div>
           </header>
 
@@ -503,6 +549,7 @@ export default function Dashboard() {
                   onClick={() => handleChartClick("spo2")}
                   isSelected={selectedChart === "spo2"}
                   data={chartData}
+                  isConnected={connectionStatus === "connected"}
                 />
               </div>
 
@@ -512,6 +559,7 @@ export default function Dashboard() {
                   onClick={() => handleChartClick("temperature")}
                   isSelected={selectedChart === "temperature"}
                   data={chartData}
+                  isConnected={connectionStatus === "connected"}
                 />
                 <RespiratoryRateChart
                   onClick={() => handleChartClick("respiratoryRate")}

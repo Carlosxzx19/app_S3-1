@@ -38,6 +38,7 @@ export function useMqttData() {
     const [chartData, setChartData] = useState<SensorDataPoint[]>([])
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>("disconnected")
     const [lastReceived, setLastReceived] = useState<number | null>(null)
+    const [batteryPercentage, setBatteryPercentage] = useState<number | null>(null)
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const clientRef = useRef<any>(null)
@@ -109,6 +110,10 @@ export function useMqttData() {
                     // Store temperature if provided (from a separate sensor like MLX90614)
                     if (data.temperature !== undefined) {
                         lastTemperatureRef.current = data.temperature
+                    }
+                    
+                    if (data.battery !== undefined) {
+                        setBatteryPercentage(data.battery)
                     }
 
                     // Process raw IR/Red values through the vital signs processor
@@ -184,5 +189,6 @@ export function useMqttData() {
         connectionStatus,
         isReceivingData,
         lastReceived,
+        batteryPercentage,
     }
 }
