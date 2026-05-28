@@ -27,7 +27,8 @@ const MQTT_PASSWORD = process.env.NEXT_PUBLIC_MQTT_PASSWORD || "Qwerty123*"
  * {
  *   "ir": 123456,
  *   "red": 98765,
- *   "temperature": 36.6   // optional — from a separate sensor
+ *   "temp": 36.6,         // optional temperature
+ *   "bat": 100            // optional battery percentage
  * }
  *
  * The raw IR/Red values are processed client-side using the
@@ -108,12 +109,14 @@ export function useMqttData() {
                     const now = Date.now()
 
                     // Store temperature if provided (from a separate sensor like MLX90614)
-                    if (data.temperature !== undefined) {
-                        lastTemperatureRef.current = data.temperature
+                    const temp = data.temp !== undefined ? data.temp : data.temperature
+                    if (temp !== undefined) {
+                        lastTemperatureRef.current = temp
                     }
                     
-                    if (data.battery !== undefined) {
-                        setBatteryPercentage(data.battery)
+                    const battery = data.bat !== undefined ? data.bat : data.battery
+                    if (battery !== undefined) {
+                        setBatteryPercentage(battery)
                     }
 
                     // Process raw IR/Red values through the vital signs processor
