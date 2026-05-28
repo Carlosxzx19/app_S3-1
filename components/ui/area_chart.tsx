@@ -9,7 +9,7 @@ import {
     ChartTooltipContent,
 } from "@/components/ui/chart"
 import type { SensorDataPoint } from "@/hooks/useMqttData"
-import { Wind, Thermometer, Maximize2 } from "lucide-react"
+import { Wind, Thermometer, Maximize2, HeartPlus, Activity } from "lucide-react"
 
 export type { SensorDataPoint }
 export type ChartKey = "heartRate" | "spo2" | "temperature" | "respiratoryRate"
@@ -42,36 +42,142 @@ interface ChartCardProps {
 
 // ─── Compact Cards ─────────────────────────────────────────────────────────────
 
-export const HeartRateChart = ({ onClick, isSelected, data }: ChartCardProps) => {
+export const HeartRateChart = ({ onClick, isSelected, data, isConnected }: ChartCardProps) => {
+    const latest = data.length > 0 ? data[data.length - 1] : null;
+    const isNoConnection = isConnected === false;
+    const value = isNoConnection ? 0.0 : (latest && latest.heartRate != null ? latest.heartRate : null);
+
+    // Determine color and status label
+    let statusColor = "text-[#22c55e]"; // Green for normal
+    let statusBg = "bg-[#22c55e]/10";
+    let statusBorder = "border-[#22c55e]/20";
+    let statusLabel = "Frecuencia Normal";
+    let pulseColor = "#22c55e";
+
+    if (isNoConnection) {
+        statusColor = "text-[#ef4444]"; // Red
+        statusBg = "bg-[#ef4444]/10";
+        statusBorder = "border-[#ef4444]/20";
+        statusLabel = "Sin Conexión";
+        pulseColor = "#ef4444";
+    } else if (value !== null) {
+        if (value >= 130 || value <= 35) {
+            statusColor = "text-[#ef4444]"; // Red
+            statusBg = "bg-[#ef4444]/10";
+            statusBorder = "border-[#ef4444]/20";
+            statusLabel = "Crítico";
+            pulseColor = "#ef4444";
+        } else if (value >= 100 || value <= 50) {
+            statusColor = "text-[#eab308]"; // Yellow
+            statusBg = "bg-[#eab308]/10";
+            statusBorder = "border-[#eab308]/20";
+            statusLabel = "Alerta - Límite";
+            pulseColor = "#eab308";
+        }
+    } else {
+        statusColor = "text-text-muted";
+        statusBg = "bg-bg-panel";
+        statusBorder = "border-border-default";
+        statusLabel = "Esperando datos...";
+    }
+
+    // Circular progress stroke calculation
+    const radius = 28;
+    const circumference = 2 * Math.PI * radius;
+    // Calibrate: 0 to 160 bpm
+    const progress = value !== null ? Math.min(Math.max((value / 160) * 100, 0), 100) : 0;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
+
     return (
         <div
             onClick={onClick}
-            className="rounded-sm bg-bg-card p-1 max-w-[270px] h-[200px] flex flex-col cursor-pointer transition-all duration-200 hover:brightness-95 dark:hover:brightness-110"
+            className="group relative rounded-sm bg-bg-card p-4 max-w-[270px] w-[270px] h-[200px] flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg select-none"
             style={{
                 border: isSelected
                     ? "1px solid #F24E43"
                     : "1px solid var(--border-default)",
-                boxShadow: isSelected ? "0 0 12px 2px rgba(242,78,67,0.25)" : "none",
+                boxShadow: isSelected ? "0 0 16px 2px rgba(242,78,67,0.3)" : "none",
             }}
         >
-            <h1 className="text-[10px] font-semibold text-text-primary uppercase tracking-widest px-2 pt-2 mb-1 transition-colors">
-                Frecuencía cardíaca (BPM)
-            </h1>
-            <ChartContainer config={chartConfig} className="flex-1 w-full">
-                <RechartsAreaChart data={data} margin={{ top: 5, right: 5, left: -35, bottom: 5 }}>
-                    <defs>
-                        <linearGradient id="colorHeartRate" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={chartConfig.heartRate.color} stopOpacity={0.3} />
-                            <stop offset="95%" stopColor={chartConfig.heartRate.color} stopOpacity={0} />
-                        </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={true} strokeDasharray="3 3" stroke="currentColor" className="text-border-default opacity-50" />
-                    <XAxis dataKey="time" tickLine={false} axisLine={false} tick={{ fill: "var(--text-secondary)", fontSize: 8 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-secondary)", fontSize: 8 }} domain={["dataMin - 5", "dataMax + 5"]} />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                    <Area type="monotone" dataKey="heartRate" stroke={chartConfig.heartRate.color} strokeWidth={2.5} fillOpacity={1} fill="url(#colorHeartRate)" dot={false} />
-                </RechartsAreaChart>
-            </ChartContainer>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                    <span className="p-1.5 rounded bg-[#F24E43]/10 text-[#F24E43] transition-colors group-hover:bg-[#F24E43]/20">
+                        <HeartPlus size={14} className="animate-pulse" />
+                    </span>
+                    <h1 className="text-[10px] font-semibold text-text-primary uppercase tracking-widest transition-colors">
+                        Frecuencia Cardíaca
+                    </h1>
+                </div>
+                <Maximize2 size={12} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+
+            {/* Main Value & Visual Indicator */}
+            <div className="flex items-center justify-between my-2">
+                <div className="flex items-baseline">
+                    <span className="text-5xl font-extrabold tracking-tight text-text-primary tabular-nums">
+                        {value !== null ? (isNoConnection ? "0.0" : value) : "--"}
+                    </span>
+                    <span className="text-lg font-medium text-text-secondary ml-1">bpm</span>
+                </div>
+
+                {/* SVG Progress Circle */}
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90">
+                        {/* Background Circle */}
+                        <circle
+                            cx="32"
+                            cy="32"
+                            r={radius}
+                            className="text-border-default/20 dark:text-border-default/10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="transparent"
+                        />
+                        {/* Animated/Colored Progress Circle */}
+                        <circle
+                            cx="32"
+                            cy="32"
+                            r={radius}
+                            stroke="#F24E43"
+                            strokeWidth="4.5"
+                            fill="transparent"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={strokeDashoffset}
+                            strokeLinecap="round"
+                            className="transition-all duration-1000 ease-out"
+                        />
+                    </svg>
+                    <span className="absolute text-[8px] font-bold text-text-muted text-center leading-none">
+                        0 <br/> a 160
+                    </span>
+                </div>
+            </div>
+
+            {/* Footer / Status Label */}
+            <div className="flex items-center justify-between pt-2 border-t border-border-default/50">
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusBg} ${statusColor} ${statusBorder}`}>
+                    <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{
+                            backgroundColor: pulseColor,
+                            animation: isNoConnection || (value !== null && (value >= 100 || value <= 50)) ? "heartPulse 1.5s ease-in-out infinite" : "none"
+                        }}
+                    />
+                    {statusLabel}
+                </div>
+                <span className="text-[9px] text-text-muted font-medium uppercase tracking-wider group-hover:text-[#F24E43] transition-colors">
+                    Ver Tendencia →
+                </span>
+            </div>
+
+            {/* Custom pulse keyframes */}
+            <style>{`
+                @keyframes heartPulse {
+                    0%, 100% { transform: scale(1); opacity: 0.4; }
+                    50% { transform: scale(1.8); opacity: 0; }
+                }
+            `}</style>
         </div>
     )
 }
@@ -361,36 +467,142 @@ export const TemperatureChart = ({ onClick, isSelected, data, isConnected }: Cha
     );
 }
 
-export const RespiratoryRateChart = ({ onClick, isSelected, data }: ChartCardProps) => {
+export const RespiratoryRateChart = ({ onClick, isSelected, data, isConnected }: ChartCardProps) => {
+    const latest = data.length > 0 ? data[data.length - 1] : null;
+    const isNoConnection = isConnected === false;
+    const value = isNoConnection ? 0.0 : (latest && latest.respiratoryRate != null ? latest.respiratoryRate : null);
+
+    // Determine color and status label
+    let statusColor = "text-[#22c55e]"; // Green for normal
+    let statusBg = "bg-[#22c55e]/10";
+    let statusBorder = "border-[#22c55e]/20";
+    let statusLabel = "Frecuencia Normal";
+    let pulseColor = "#22c55e";
+
+    if (isNoConnection) {
+        statusColor = "text-[#ef4444]"; // Red
+        statusBg = "bg-[#ef4444]/10";
+        statusBorder = "border-[#ef4444]/20";
+        statusLabel = "Sin Conexión";
+        pulseColor = "#ef4444";
+    } else if (value !== null) {
+        if (value >= 35 || value <= 6) {
+            statusColor = "text-[#ef4444]"; // Red
+            statusBg = "bg-[#ef4444]/10";
+            statusBorder = "border-[#ef4444]/20";
+            statusLabel = "Crítico";
+            pulseColor = "#ef4444";
+        } else if (value >= 25 || value <= 10) {
+            statusColor = "text-[#eab308]"; // Yellow
+            statusBg = "bg-[#eab308]/10";
+            statusBorder = "border-[#eab308]/20";
+            statusLabel = "Alerta - Límite";
+            pulseColor = "#eab308";
+        }
+    } else {
+        statusColor = "text-text-muted";
+        statusBg = "bg-bg-panel";
+        statusBorder = "border-border-default";
+        statusLabel = "Esperando datos...";
+    }
+
+    // Circular progress stroke calculation
+    const radius = 28;
+    const circumference = 2 * Math.PI * radius;
+    // Calibrate: 0 to 40 rpm
+    const progress = value !== null ? Math.min(Math.max((value / 40) * 100, 0), 100) : 0;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
+
     return (
         <div
             onClick={onClick}
-            className="rounded-sm bg-bg-card p-1 max-w-[270px] h-[200px] flex flex-col cursor-pointer transition-all duration-200 hover:brightness-95 dark:hover:brightness-110"
+            className="group relative rounded-sm bg-bg-card p-4 max-w-[270px] w-[270px] h-[200px] flex flex-col justify-between cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg select-none"
             style={{
                 border: isSelected
                     ? "1px solid #4EBFB3"
                     : "1px solid var(--border-default)",
-                boxShadow: isSelected ? "0 0 12px 2px rgba(78,191,179,0.25)" : "none",
+                boxShadow: isSelected ? "0 0 16px 2px rgba(78,191,179,0.3)" : "none",
             }}
         >
-            <h1 className="text-[10px] font-semibold text-text-primary uppercase tracking-widest px-2 pt-2 mb-1 transition-colors">
-                Frecuencia Respiratoria (RPM)
-            </h1>
-            <ChartContainer config={chartConfig} className="flex-1 w-full">
-                <RechartsAreaChart data={data} margin={{ top: 5, right: 5, left: -35, bottom: 5 }}>
-                    <defs>
-                        <linearGradient id="colorRespiratoryRate" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor={chartConfig.respiratoryRate.color} stopOpacity={0.3} />
-                            <stop offset="95%" stopColor={chartConfig.respiratoryRate.color} stopOpacity={0} />
-                        </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={true} strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                    <XAxis dataKey="time" tickLine={false} axisLine={false} tick={{ fill: "var(--text-secondary)", fontSize: 8 }} />
-                    <YAxis tickLine={false} axisLine={false} tick={{ fill: "var(--text-secondary)", fontSize: 8 }} domain={["dataMin - 5", "dataMax + 5"]} />
-                    <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
-                    <Area type="monotone" dataKey="respiratoryRate" stroke={chartConfig.respiratoryRate.color} strokeWidth={2.5} fillOpacity={1} fill="url(#colorRespiratoryRate)" dot={false} />
-                </RechartsAreaChart>
-            </ChartContainer>
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                    <span className="p-1.5 rounded bg-[#4EBFB3]/10 text-[#4EBFB3] transition-colors group-hover:bg-[#4EBFB3]/20">
+                        <Activity size={14} className="animate-pulse" />
+                    </span>
+                    <h1 className="text-[10px] font-semibold text-text-primary uppercase tracking-widest transition-colors">
+                        Frecuencia Respiratoria
+                    </h1>
+                </div>
+                <Maximize2 size={12} className="text-text-muted opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </div>
+
+            {/* Main Value & Visual Indicator */}
+            <div className="flex items-center justify-between my-2">
+                <div className="flex items-baseline">
+                    <span className="text-5xl font-extrabold tracking-tight text-text-primary tabular-nums">
+                        {value !== null ? value : "--"}
+                    </span>
+                    <span className="text-lg font-medium text-text-secondary ml-1">RPM</span>
+                </div>
+
+                {/* SVG Progress Circle */}
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90">
+                        {/* Background Circle */}
+                        <circle
+                            cx="32"
+                            cy="32"
+                            r={radius}
+                            className="text-border-default/20 dark:text-border-default/10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                            fill="transparent"
+                        />
+                        {/* Animated/Colored Progress Circle */}
+                        <circle
+                            cx="32"
+                            cy="32"
+                            r={radius}
+                            stroke="#4EBFB3"
+                            strokeWidth="4.5"
+                            fill="transparent"
+                            strokeDasharray={circumference}
+                            strokeDashoffset={strokeDashoffset}
+                            strokeLinecap="round"
+                            className="transition-all duration-1000 ease-out"
+                        />
+                    </svg>
+                    <span className="absolute text-[8px] font-bold text-text-muted text-center leading-none">
+                        0 <br/> a 40
+                    </span>
+                </div>
+            </div>
+
+            {/* Footer / Status Label */}
+            <div className="flex items-center justify-between pt-2 border-t border-border-default/50">
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[10px] font-semibold ${statusBg} ${statusColor} ${statusBorder}`}>
+                    <span
+                        className="w-1.5 h-1.5 rounded-full"
+                        style={{
+                            backgroundColor: pulseColor,
+                            animation: isNoConnection || (value !== null && (value >= 25 || value <= 10)) ? "respPulse 1.5s ease-in-out infinite" : "none"
+                        }}
+                    />
+                    {statusLabel}
+                </div>
+                <span className="text-[9px] text-text-muted font-medium uppercase tracking-wider group-hover:text-[#4EBFB3] transition-colors">
+                    Ver Tendencia →
+                </span>
+            </div>
+
+            {/* Custom pulse keyframes */}
+            <style>{`
+                @keyframes respPulse {
+                    0%, 100% { transform: scale(1); opacity: 0.4; }
+                    50% { transform: scale(1.8); opacity: 0; }
+                }
+            `}</style>
         </div>
     )
 }

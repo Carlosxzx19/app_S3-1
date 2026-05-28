@@ -544,6 +544,7 @@ export default function Dashboard() {
                   onClick={() => handleChartClick("heartRate")}
                   isSelected={selectedChart === "heartRate"}
                   data={chartData}
+                  isConnected={connectionStatus === "connected"}
                 />
                 <SpO2Chart
                   onClick={() => handleChartClick("spo2")}
@@ -565,6 +566,7 @@ export default function Dashboard() {
                   onClick={() => handleChartClick("respiratoryRate")}
                   isSelected={selectedChart === "respiratoryRate"}
                   data={chartData}
+                  isConnected={connectionStatus === "connected"}
                 />
               </div>
             </div>
