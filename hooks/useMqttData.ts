@@ -47,7 +47,7 @@ export function useMqttData() {
     const lastChartUpdateRef = useRef<number>(0)
     const lastTemperatureRef = useRef<number | null>(null)
 
-    // Timeout to detect data staleness (no data for 10s → yellow)
+    // Timeout to detect data staleness (no data for 4s → yellow)
     const [isReceivingData, setIsReceivingData] = useState(false)
     const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -56,7 +56,7 @@ export function useMqttData() {
         if (timeoutRef.current) clearTimeout(timeoutRef.current)
         timeoutRef.current = setTimeout(() => {
             setIsReceivingData(false)
-        }, 10000) // 10 seconds without data → not receiving
+        }, 4000) // 4 seconds without data → not receiving
     }, [])
 
     useEffect(() => {

@@ -19,7 +19,7 @@ export function createVitalSignsProcessor() {
   const RATE_SIZE        = 4;
   const SPO2_BUFFER_LEN  = 100;
   const MAX_BEATS        = 120;
-  const FFT_SAMPLES      = 64;
+  const FFT_SAMPLES      = 32;
   const RESAMPLE_FREQ    = 4.0;
   const RESP_FREQ_MIN    = 0.15;
   const RESP_FREQ_MAX    = 0.40;
@@ -27,7 +27,7 @@ export function createVitalSignsProcessor() {
   const RR_MAX_MS        = 1500;
   const IR_FINGER_THRESH = 50000;
   const EDR_SMOOTH_WIN   = 3;
-  const FR_CALC_INTERVAL = 5000;
+  const FR_CALC_INTERVAL = 2000;
 
   let state = {
     rates:          new Array(RATE_SIZE).fill(0),
@@ -76,7 +76,7 @@ export function createVitalSignsProcessor() {
 
   // ── Remuestreo uniforme a RESAMPLE_FREQ Hz ─────────────────────
   function remuestrear(srcValues: number[]): number[] | null {
-    if (state.beatCount < 8) return null;
+    if (state.beatCount < 4) return null;
     const tEnd   = state.beatTimestamps[state.beatCount - 1];
     const tStart = state.beatTimestamps[0];
     const durSeg = (tEnd - tStart) / 1000.0;
@@ -233,8 +233,8 @@ export function createVitalSignsProcessor() {
 
   // ── Estimación SpO₂ por ratio RED/IR ──────────────────────────
   function estimarSpO2() {
-    const irSlice  = state.irBuf.slice(-25);
-    const redSlice = state.redBuf.slice(-25);
+    const irSlice  = state.irBuf.slice(-10);
+    const redSlice = state.redBuf.slice(-10);
     const irAC     = irSlice.reduce((a, b) => a + b, 0)  / irSlice.length;
     const redAC    = redSlice.reduce((a, b) => a + b, 0) / redSlice.length;
     if (irAC <= IR_FINGER_THRESH || redAC <= 10000) { state.validSPO2 = false; return; }
