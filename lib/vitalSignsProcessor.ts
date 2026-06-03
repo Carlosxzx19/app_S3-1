@@ -51,10 +51,10 @@ export function createVitalSignsProcessor() {
   };
 
   // ── Detección de latido por pendiente ──────────────────────────
-  function checkForBeat(irVal: number): boolean {
-    const slope = irVal - state.prevIR;
-    state.prevIR = irVal;
-    return slope > 100;
+  function checkForBeat(currentVal: number): boolean {
+    const slope = currentVal - state.prevIR;
+    state.prevIR = currentVal;
+    return slope > 30; // Lowered because red signal might have smaller amplitude
   }
 
   // ── Buffer circular de latidos ─────────────────────────────────
@@ -254,8 +254,11 @@ export function createVitalSignsProcessor() {
     state.redBuf.shift(); state.redBuf.push(redVal);
     state.lastIR = irVal;
 
-    if (irVal >= IR_FINGER_THRESH) {
-      if (checkForBeat(irVal)) {
+    // Use redVal for beat detection if irVal is saturated at max 18-bit value (262143)
+    const beatSignal = irVal >= 262000 ? redVal : irVal;
+
+    if (irVal >= IR_FINGER_THRESH || redVal >= IR_FINGER_THRESH) {
+      if (checkForBeat(beatSignal)) {
         const delta = now - state.lastBeat_ms;
         state.lastBeat_ms = now;
         state.beatsPerMin = 60000.0 / delta;
