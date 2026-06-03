@@ -16,7 +16,7 @@ export interface VitalSignsResult {
 
 export function createVitalSignsProcessor() {
 
-  const RATE_SIZE        = 2;
+  const RATE_SIZE        = 4;
   const SPO2_BUFFER_LEN  = 20;
   const MAX_BEATS        = 120;
   const FFT_SAMPLES      = 32;
@@ -272,13 +272,24 @@ export function createVitalSignsProcessor() {
       if (checkForBeat(filteredSignal)) {
         const delta = now - state.lastBeat_ms;
         state.lastBeat_ms = now;
-        state.beatsPerMin = 60000.0 / delta;
+        let newBPM = 60000.0 / delta;
 
-        if (state.beatsPerMin > 20 && state.beatsPerMin < 220) {
+        if (newBPM > 20 && newBPM < 220) {
+          // Clamp the maximum jump between beats to prevent noise spikes (e.g. jumping from 60 to 140)
+          if (state.beatAvg > 0) {
+            const maxJump = 20;
+            if (newBPM > state.beatAvg + maxJump) newBPM = state.beatAvg + maxJump;
+            if (newBPM < state.beatAvg - maxJump) newBPM = state.beatAvg - maxJump;
+          }
+          
+          state.beatsPerMin = newBPM;
           state.rates[state.rateSpot++] = Math.round(state.beatsPerMin);
           state.rateSpot %= RATE_SIZE;
+          
+          // Calculate the average only using populated values if array isn't full yet
+          const populatedRates = state.rates.filter(r => r > 0);
           state.beatAvg = Math.round(
-            state.rates.reduce((a, b) => a + b, 0) / RATE_SIZE
+            populatedRates.reduce((a, b) => a + b, 0) / Math.max(populatedRates.length, 1)
           );
         }
 
