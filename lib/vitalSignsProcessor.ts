@@ -16,8 +16,8 @@ export interface VitalSignsResult {
 
 export function createVitalSignsProcessor() {
 
-  const RATE_SIZE        = 4;
-  const SPO2_BUFFER_LEN  = 100;
+  const RATE_SIZE        = 2;
+  const SPO2_BUFFER_LEN  = 20;
   const MAX_BEATS        = 120;
   const FFT_SAMPLES      = 32;
   const RESAMPLE_FREQ    = 4.0;
@@ -25,7 +25,7 @@ export function createVitalSignsProcessor() {
   const RESP_FREQ_MAX    = 0.40;
   const RR_MIN_MS        = 300;
   const RR_MAX_MS        = 1500;
-  const IR_FINGER_THRESH = 20000;
+  const IR_FINGER_THRESH = 5000;
   const EDR_SMOOTH_WIN   = 3;
   const FR_CALC_INTERVAL = 2000;
 
@@ -54,7 +54,7 @@ export function createVitalSignsProcessor() {
   function checkForBeat(irVal: number): boolean {
     const slope = irVal - state.prevIR;
     state.prevIR = irVal;
-    return slope > 800;
+    return slope > 100;
   }
 
   // ── Buffer circular de latidos ─────────────────────────────────
@@ -237,7 +237,7 @@ export function createVitalSignsProcessor() {
     const redSlice = state.redBuf.slice(-10);
     const irAC     = irSlice.reduce((a, b) => a + b, 0)  / irSlice.length;
     const redAC    = redSlice.reduce((a, b) => a + b, 0) / redSlice.length;
-    if (irAC <= IR_FINGER_THRESH || redAC <= 10000) { state.validSPO2 = false; return; }
+    if (irAC <= IR_FINGER_THRESH || redAC <= 1000) { state.validSPO2 = false; return; }
     const ratio    = redAC / Math.max(irAC, 1);
     const estimate = Math.round(110 - 25 * ratio);
     if (estimate > 70 && estimate <= 100) {

@@ -14,7 +14,7 @@ export interface SensorDataPoint {
 export type ConnectionStatus = "connected" | "disconnected" | "connecting" | "error"
 
 const MAX_DATA_POINTS = 30
-const CHART_UPDATE_INTERVAL_MS = 1000 // Add a chart point every 1 second
+const CHART_UPDATE_INTERVAL_MS = 100 // Add a chart point every 100ms max to avoid missing ESP32 data
 
 // ─── Default broker config (override via .env.local) ────────────────────────
 const BROKER_URL = process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "wss://broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud:8884/mqtt"
