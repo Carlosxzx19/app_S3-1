@@ -48,6 +48,7 @@ export function createVitalSignsProcessor() {
     lastIR:         0,
     lastFR_ms:      0,
     prevIR:         0,
+    filterBuf:      new Array(4).fill(0),
   };
 
   // ── Detección de latido por pendiente ──────────────────────────
@@ -255,10 +256,20 @@ export function createVitalSignsProcessor() {
     state.lastIR = irVal;
 
     // Use redVal for beat detection if irVal is saturated at max 18-bit value (262143)
-    const beatSignal = irVal >= 262000 ? redVal : irVal;
+    const rawSignal = irVal >= 262000 ? redVal : irVal;
+
+    // Small window Moving Average filter (4 samples)
+    state.filterBuf.shift();
+    state.filterBuf.push(rawSignal);
+    
+    // Only use the filter if it's fully populated with real data to avoid startup dips
+    let filteredSignal = rawSignal;
+    if (state.filterBuf[0] !== 0) {
+        filteredSignal = state.filterBuf.reduce((a, b) => a + b, 0) / state.filterBuf.length;
+    }
 
     if (irVal >= IR_FINGER_THRESH || redVal >= IR_FINGER_THRESH) {
-      if (checkForBeat(beatSignal)) {
+      if (checkForBeat(filteredSignal)) {
         const delta = now - state.lastBeat_ms;
         state.lastBeat_ms = now;
         state.beatsPerMin = 60000.0 / delta;
@@ -321,6 +332,7 @@ export function createVitalSignsProcessor() {
     state.lastIR         = 0;
     state.lastFR_ms      = 0;
     state.prevIR         = 0;
+    state.filterBuf      = new Array(4).fill(0);
   }
 
   return { processSample, reset };
