@@ -76,18 +76,32 @@ export function useMqttData() {
             const mqtt = mqttModule.default || mqttModule
             const clientId = `visualhealth_${Math.random().toString(16).slice(2, 10)}`
 
-            // HiveMQ Cloud WebSocket requirements:
-            const host = "978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud"
-            
+            // Dynamically parse host from BROKER_URL to avoid host mismatches and keep config unified
+            let host = "broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud"
+            let port = 8884
+            let path = "/mqtt"
+            let protocol: any = "wss"
+
+            try {
+                const parsedUrl = new URL(BROKER_URL)
+                host = parsedUrl.hostname
+                port = parsedUrl.port ? parseInt(parsedUrl.port) : 8884
+                path = parsedUrl.pathname || "/mqtt"
+                protocol = parsedUrl.protocol.replace(":", "")
+            } catch (e) {
+                console.error("[MQTT] Failed to parse BROKER_URL, using default fallback:", e)
+            }
+
             client = mqtt.connect({
-                protocol: "wss",
-                host: host,
-                port: 8884,
-                path: "/mqtt",
+                protocol,
+                host,
+                port,
+                path,
                 clientId,
                 clean: true,
-                reconnectPeriod: 5000,
-                connectTimeout: 10000,
+                keepalive: 30, // Frequent ping requests to prevent cloud load balancers or firewalls from dropping WebSocket connection
+                reconnectPeriod: 2000, // Reconnect faster if connection is lost
+                connectTimeout: 15000, // 15s connection timeout
                 username: MQTT_USERNAME || undefined,
                 password: MQTT_PASSWORD || undefined,
             })
