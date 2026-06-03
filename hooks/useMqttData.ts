@@ -17,9 +17,9 @@ const MAX_DATA_POINTS = 30
 const CHART_UPDATE_INTERVAL_MS = 2000 // Add a chart point every 2 seconds
 
 // ─── Default broker config (override via env variables) ────────────────────────
-const BROKER_URL = process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud:8884/mqtt"
+const BROKER_URL = process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "wss://broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud:8884/mqtt"
 const TOPIC = process.env.NEXT_PUBLIC_MQTT_TOPIC || "visualhealth/esp32/sensors"
-const MQTT_USERNAME = process.env.NEXT_PUBLIC_MQTT_USERNAME || "Fotopo"
+const MQTT_USERNAME = process.env.NEXT_PUBLIC_MQTT_USERNAME || "WEBSOCKET"
 const MQTT_PASSWORD = process.env.NEXT_PUBLIC_MQTT_PASSWORD || "Qwerty123*"
 
 export function useMqttData() {
