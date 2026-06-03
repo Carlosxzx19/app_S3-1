@@ -14,7 +14,7 @@ export interface SensorDataPoint {
 export type ConnectionStatus = "connected" | "disconnected" | "connecting" | "error"
 
 const MAX_DATA_POINTS = 30
-const CHART_UPDATE_INTERVAL_MS = 2000 // Add a chart point every 2 seconds
+const CHART_UPDATE_INTERVAL_MS = 1000 // Add a chart point every 1 second
 
 // ─── Default broker config (override via .env.local) ────────────────────────
 const BROKER_URL = process.env.NEXT_PUBLIC_MQTT_BROKER_URL || "wss://broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud:8884/mqtt"
@@ -119,6 +119,18 @@ export function useMqttData() {
                         setBatteryPercentage(battery)
                     }
 
+                    // Parse direct values from ESP32 if sent via JSON
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const parseVal = (v: any) => {
+                        if (v === undefined || v === null) return undefined;
+                        const n = Number(v);
+                        return isNaN(n) ? undefined : n;
+                    };
+
+                    const directHeartRate = parseVal(data.heartRate ?? data.heartrate ?? data.bpm ?? data.hr ?? data.pulso);
+                    const directSpO2 = parseVal(data.spo2 ?? data.spO2 ?? data.SPO2 ?? data.oxigeno ?? data.saturacion);
+                    const directRR = parseVal(data.respiratoryRate ?? data.respiratoryrate ?? data.rr ?? data.rpm ?? data.fr ?? data.respRate);
+
                     // Process raw IR/Red values through the vital signs processor
                     const ir = data.ir ?? 0
                     const red = data.red ?? 0
@@ -137,18 +149,25 @@ export function useMqttData() {
                             .toString()
                             .padStart(2, "0")}:${timeDate.getSeconds().toString().padStart(2, "0")}`
 
+                        // Determine final values: prefer direct JSON fields, fallback to computed ones
+                        const finalHeartRate = directHeartRate !== undefined 
+                            ? (directHeartRate > 0 ? directHeartRate : null)
+                            : (result.fingerDetected && result.heartRate > 0 ? result.heartRate : null);
+
+                        const finalSpO2 = directSpO2 !== undefined
+                            ? (directSpO2 > 0 ? directSpO2 : null)
+                            : (result.fingerDetected && result.validSPO2 ? result.spo2 : null);
+
+                        const finalRR = directRR !== undefined
+                            ? (directRR > 0 ? directRR : null)
+                            : (result.fingerDetected ? result.respiratoryRate : null);
+
                         const point: SensorDataPoint = {
                             time: timeStr,
-                            heartRate: result.fingerDetected && result.heartRate > 0
-                                ? result.heartRate
-                                : null,
-                            spo2: result.fingerDetected && result.validSPO2
-                                ? result.spo2
-                                : null,
+                            heartRate: finalHeartRate,
+                            spo2: finalSpO2,
                             temperature: lastTemperatureRef.current,
-                            respiratoryRate: result.fingerDetected
-                                ? result.respiratoryRate
-                                : null,
+                            respiratoryRate: finalRR,
                         }
 
                         setChartData((prev) => {

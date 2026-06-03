@@ -25,7 +25,7 @@ export function createVitalSignsProcessor() {
   const RESP_FREQ_MAX    = 0.40;
   const RR_MIN_MS        = 300;
   const RR_MAX_MS        = 1500;
-  const IR_FINGER_THRESH = 50000;
+  const IR_FINGER_THRESH = 20000;
   const EDR_SMOOTH_WIN   = 3;
   const FR_CALC_INTERVAL = 2000;
 
