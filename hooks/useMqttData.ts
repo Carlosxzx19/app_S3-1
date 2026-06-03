@@ -76,8 +76,27 @@ export function useMqttData() {
             const mqtt = mqttModule.default || mqttModule
             const clientId = `visualhealth_${Math.random().toString(16).slice(2, 10)}`
 
-            // Connect using the complete BROKER_URL (which includes the correct 'broker' prefix)
-            client = mqtt.connect(BROKER_URL, {
+            // Parse BROKER_URL to feed parameters to options object (required for browser build of mqtt.js)
+            let host = "broker978c9ad30c094bf2815984c7639a7c25.s1.eu.hivemq.cloud"
+            let port = 8884
+            let path = "/mqtt"
+            let protocol = "wss"
+
+            try {
+                const url = new URL(BROKER_URL)
+                host = url.hostname
+                port = url.port ? parseInt(url.port, 10) : (url.protocol === "wss:" ? 8884 : 1883)
+                path = url.pathname || "/mqtt"
+                protocol = url.protocol.replace(":", "")
+            } catch (e) {
+                console.error("[MQTT] Error parsing BROKER_URL, using defaults", e)
+            }
+
+            client = mqtt.connect({
+                protocol: protocol as any,
+                host,
+                port,
+                path,
                 clientId,
                 clean: true,
                 keepalive: 30, // Send ping every 30 seconds to keep connection alive
